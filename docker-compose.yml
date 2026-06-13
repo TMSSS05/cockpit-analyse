@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cockpit-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MAC_HOST=0.0.0.0
+      - MAC_PORT=8000
+      - MAC_CORS_ORIGINS=http://localhost:3000
+      - MAC_USE_MOCK_DATA=false
+      - MAC_YFINANCE_ENABLED=true
+    restart: unless-stopped
+    networks:
+      - cockpit-network
+    # Pour persister le cache DuckDB entre les redémarrages :
+    # volumes:
+    #   - cockpit-data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - API_URL=http://backend:8000
+    container_name: cockpit-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - cockpit-network
+
+networks:
+  cockpit-network:
+    driver: bridge
+
+# volumes:
+#   cockpit-data:
