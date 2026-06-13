@@ -90,10 +90,39 @@ def analyze_multi_timeframe_trend(
 
 
 def analyze_volatility(df: pd.DataFrame) -> VolatilityLabel:
-    """Analyze volatility using ATR and Bollinger Band width."""
+    """Analyze volatility regime using ATR, Bollinger Band width, and price range."""
     df = add_all_indicators(df)
     if df.empty or len(df) < 20:
         return "normal"
+
+    # Tight price range is direct evidence of low volatility
+    recent_range = df["high"].tail(10).max() - df["low"].tail(10).min()
+    total_range = df["high"].tail(50).max() - df["low"].tail(50).min()
+    range_ratio = recent_range / total_range if total_range > 0 else 1.0
+    if range_ratio < 0.3:
+        return "low"
+
+    atr = df["atr"].iloc[-1]
+    atr_mean = df["atr"].rolling(20).mean().iloc[-1]
+    if atr_mean is None or pd.isna(atr_mean) or atr_mean == 0:
+        return "normal"
+    atr_ratio = atr / atr_mean
+
+    bb_width = df["bb_width"].iloc[-1]
+    bb_mean = df["bb_width"].rolling(20).mean().iloc[-1]
+    if bb_mean is None or pd.isna(bb_mean) or bb_mean == 0:
+        return "normal"
+    bb_ratio = bb_width / bb_mean
+
+    vol_score = (atr_ratio + bb_ratio) / 2
+
+    if vol_score > 1.8:
+        return "extreme"
+    if vol_score > 1.3:
+        return "high"
+    if vol_score < 0.7:
+        return "low"
+    return "normal"
 
     atr = df["atr"].iloc[-1]
     atr_mean = df["atr"].rolling(20).mean().iloc[-1]
@@ -207,7 +236,26 @@ def detect_consolidation(df: pd.DataFrame) -> bool:
     if pd.isna(adx) or atr_ratio is None:
         return False
 
-    return bool(adx < settings.STRONG_TREND_ADX and atr_ratio < 0.9 and range_ratio < 0.3)
+    # Primary: classic consolidation — all conditions met
+    if adx < settings.STRONG_TREND_ADX and atr_ratio < 0.9 and range_ratio < 0.3:
+        return True
+
+    # Fallback: ultra-tight range (< 15%) — price is pinned, ADX/ATR lag is tolerable
+    if range_ratio < 0.15:
+        return True
+
+    # Fallback: low ADX + moderate contraction — ATR may not have fully converged,
+    # and range ratio can be slightly higher (up to 35%) while still in choppy consolidation
+    if adx < settings.STRONG_TREND_ADX and range_ratio < 0.35 and atr_ratio < 1.0:
+        return True
+
+    # Fallback: absolute tightness (< 0.5% of price) — catches pinned price
+    # where range_ratio ≈ 1.0 because the full window is equally tight
+    last_close = df["close"].iloc[-1]
+    if last_close > 0 and recent_range / last_close < 0.005:
+        return True
+
+    return False
 
 
 def detect_breakout(df: pd.DataFrame) -> bool:
@@ -220,8 +268,8 @@ def detect_breakout(df: pd.DataFrame) -> bool:
     if df.empty or len(df) < 20:
         return False
 
-    recent_high = df["high"].tail(10).max()
-    recent_low = df["low"].tail(10).min()
+    recent_high = df["high"].iloc[-11:-1].max()
+    recent_low = df["low"].iloc[-11:-1].min()
     last_close = df["close"].iloc[-1]
 
     atr = df["atr"].iloc[-1]
@@ -233,6 +281,22 @@ def detect_breakout(df: pd.DataFrame) -> bool:
 
     broke_high = last_close > recent_high
     broke_low = last_close < recent_low
+
+    # ADX guard: avoid flagging strong trends as breakouts
+    # unless price was tightly consolidating beforehand
+    last = df.iloc[-1]
+    adx_val = last.get("adx", 0)
+    if not pd.isna(adx_val) and adx_val >= settings.STRONG_TREND_ADX:
+        pre_range = recent_high - recent_low
+        if pre_range / last_close >= 0.05:
+            return False
+
+    # Low-ADX guard: avoid flagging noise as breakouts in non-trending markets
+    # Requires strong momentum to confirm — weak momentum + low ADX = noise, not breakout
+    if not pd.isna(adx_val) and adx_val < settings.STRONG_TREND_ADX:
+        momentum = analyze_momentum(df)
+        if "strong" not in str(momentum):
+            return False
 
     return bool((broke_high or broke_low) and atr_expanding and momentum_aligned)
 
@@ -247,8 +311,8 @@ def detect_sweep(df: pd.DataFrame) -> bool:
     if df.empty or len(df) < 20:
         return False
 
-    recent_high = df["high"].tail(10).max()
-    recent_low = df["low"].tail(10).min()
+    recent_high = df["high"].iloc[-11:-1].max()
+    recent_low = df["low"].iloc[-11:-1].min()
     last = df.iloc[-1]
 
     # Long wick detection
@@ -267,10 +331,7 @@ def detect_sweep(df: pd.DataFrame) -> bool:
     broke_low = last["low"] < recent_low
     closed_back = (last["close"] < recent_high) and (last["close"] > recent_low)
 
-    momentum = analyze_momentum(df)
-    weakening = "weak" in momentum
-
-    condition_above = broke_high and long_wick_above and closed_back and weakening
-    condition_below = broke_low and long_wick_below and closed_back and weakening
+    condition_above = broke_high and long_wick_above and closed_back
+    condition_below = broke_low and long_wick_below and closed_back
 
     return bool(condition_above or condition_below)

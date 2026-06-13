@@ -214,7 +214,7 @@ def get_closest_level(current_price: float, levels: list[dict]) -> dict | None:
     below = [l for l in levels if l["price"] < current_price]
 
     closest_above = min(above, key=lambda l: l["price"] - current_price) if above else None
-    closest_below = max(below, key=lambda l: current_price - l["price"]) if below else None
+    closest_below = min(below, key=lambda l: current_price - l["price"]) if below else None
 
     if closest_above and closest_below:
         dist_above = closest_above["price"] - current_price
