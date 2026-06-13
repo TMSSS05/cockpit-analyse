@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { init, dispose } from "klinecharts";
 import type { Chart, KLineData, DataLoader, PeriodType } from "klinecharts";
 import type { Candle } from "@/lib/api";
+import { getDrawings, createDrawing, updateDrawing, deleteDrawing } from "@/lib/api";
+import DrawingToolbar from "./DrawingToolbar";
+import type { DrawingTool } from "./DrawingToolbar";
+import { toolToOverlay } from "./DrawingToolbar";
 
 interface KLineChartProps {
   candles: Candle[];
+  symbol: string;
+  timeframe: string;
   height?: number;
 }
 
@@ -150,15 +156,14 @@ export default function KLineChart({ candles, height = 500 }: KLineChartProps) {
     chart.setPeriod(guessPeriod(candles));
 
     // ── MA overlay on candle pane ──────────────────────────────
-    // isStack: false → overlay on the existing candle pane
+    // isStack: default false → overlay on the existing candle pane
     chart.createIndicator(
       { name: "MA", calcParams: [20, 50, 200] },
-      { isStack: false },
     );
 
     // ── Volume pane below ──────────────────────────────────────
     // isStack: true → create a new separate pane
-    chart.createIndicator("VOLUME", { isStack: true });
+    chart.createIndicator("VOL", { isStack: true });
 
     // ── DataLoader (v10 replaces applyNewData / updateData) ────
     const dataLoader: DataLoader = {

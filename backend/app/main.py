@@ -9,6 +9,7 @@ from app.routes.candles import router as candles_router
 from app.routes.analysis import router as analysis_router
 from app.routes.levels import router as levels_router
 from app.routes.brief import router as brief_router
+from app.routes.drawings import router as drawings_router
 
 
 @asynccontextmanager
@@ -36,3 +37,5 @@ app.include_router(candles_router)
 app.include_router(analysis_router)
 app.include_router(levels_router)
 app.include_router(brief_router)
+app.include_router(drawings_router)
+

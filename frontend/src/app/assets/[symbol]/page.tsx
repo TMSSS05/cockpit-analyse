@@ -1,9 +1,13 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import KLineChart from "@/components/chart/KLineChart";
+
+const KLineChart = dynamic(() => import("@/components/chart/KLineChart"), {
+  ssr: false,
+});
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice, scoreColor, scoreBg } from "@/lib/utils";
@@ -159,7 +163,7 @@ export default function AssetDetail() {
       )}
 
       {candles && (
-        <KLineChart candles={candles.candles} />
+        <KLineChart candles={candles.candles} symbol={symbol} timeframe={timeframe} />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

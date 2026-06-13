@@ -98,10 +98,77 @@ export interface BriefResponse {
   assets: BriefAsset[];
 }
 
+export interface DrawingPoint {
+  timestamp?: number | null;
+  price?: number | null;
+  value?: number | null;
+}
+
+export interface DrawingCreate {
+  symbol: string;
+  timeframe: string;
+  overlay_name: string;
+  id?: string | null;
+  points?: DrawingPoint[];
+  styles?: Record<string, unknown>;
+}
+
+export interface DrawingUpdate {
+  points?: DrawingPoint[];
+  styles?: Record<string, unknown>;
+}
+
+export interface DrawingOut {
+  id: string;
+  symbol: string;
+  timeframe: string;
+  overlay_name: string;
+  points: DrawingPoint[];
+  styles: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DrawingsResponse {
+  drawings: DrawingOut[];
+}
+
 async function fetchJSON<T>(path: string): Promise<T> {
   const res = await fetch(path);
   if (!res.ok) {
     throw new Error(`API ${res.status}: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+async function postJSON<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`API POST ${res.status}: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+async function putJSON<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`API PUT ${res.status}: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+async function delJSON<T>(path: string): Promise<T> {
+  const res = await fetch(path, { method: "DELETE" });
+  if (!res.ok) {
+    throw new Error(`API DELETE ${res.status}: ${res.statusText}`);
   }
   return res.json();
 }
@@ -138,4 +205,20 @@ export function getBrief(
   timeframe = "4h"
 ): Promise<BriefResponse> {
   return fetchJSON(`/api/brief?timeframe=${timeframe}`);
+}
+
+export function getDrawings(symbol: string, timeframe = "1h"): Promise<DrawingsResponse> {
+  return fetchJSON(`/api/drawings/${symbol}?timeframe=${timeframe}`);
+}
+
+export function createDrawing(body: DrawingCreate): Promise<DrawingOut> {
+  return postJSON("/api/drawings", body);
+}
+
+export function updateDrawing(id: string, body: DrawingUpdate): Promise<DrawingOut> {
+  return putJSON(`/api/drawings/${id}`, body);
+}
+
+export function deleteDrawing(id: string): Promise<{ deleted: string }> {
+  return delJSON(`/api/drawings/${id}`);
 }
