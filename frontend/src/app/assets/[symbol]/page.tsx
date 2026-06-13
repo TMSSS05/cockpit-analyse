@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import CandlestickChart from "@/components/chart/CandlestickChart";
+import KLineChart from "@/components/chart/KLineChart";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice, scoreColor, scoreBg } from "@/lib/utils";
@@ -159,10 +159,7 @@ export default function AssetDetail() {
       )}
 
       {candles && (
-        <CandlestickChart
-          candles={candles.candles}
-          indicators={analysis?.indicators}
-        />
+        <KLineChart candles={candles.candles} />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
